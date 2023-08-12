@@ -44,6 +44,13 @@ def s_late(d, u, u_lo, u_hi):
     if d == 1: return w
     else: return -w
 
+def s_cross(d, z, dz_cross):
+    """ IV_like specification s(d,z): Cross-moment d_spec * z_spec
+    """
+    if d == dz_cross[0] and z == dz_cross[1]: return 1
+    else: return 0
+
+
 # Gamma* linear maps
 def gamma_star(
         md,
@@ -53,16 +60,19 @@ def gamma_star(
         u_hi=1,
         supp_z=None,
         prop_z=None,
-        f_z=None):
-    
-    """Gamma*0: the first term of the gamma* function for binary IV, no covariates
-    """
-    if estimand not in ["iv_slope", "late"]:
-        raise ValueError("estimand must be either 'iv_slope' or 'late'")
+        f_z=None,
+        dz_cross=None):
 
-    if estimand == "iv_slope":
+    if estimand not in ["iv_slope", "late", "ols_slope", "cross"]:
+        raise ValueError("estimand must be either 'iv_slope', 'late', 'ols_slope' or 'cross'")
+
+    if estimand in ["iv_slope", "ols_slope"]:
         if supp_z is None or prop_z is None or f_z is None:
-            raise ValueError("supp_z, prop_z, and f_z must be specified for iv_slope")
+            raise ValueError("supp_z, prop_z, and f_z must be specified for iv_slope or ols_slope")
+        
+    if estimand == "cross":
+        if dz_cross is None:
+            raise ValueError("dz_cross must be specified for cross-moment")
 
     if estimand == "late": 
         return integrate.quad(
@@ -103,6 +113,21 @@ def gamma_star(
         # Integrate func over u in [0,1] for every z in supp_z
         return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i]
             for i, z in enumerate(supp_z)])
+    
+    elif estimand == "cross":
+        if d == 0:
+            def func(u, z): 
+                if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_cross(d, z, dz_cross)
+                else: return 0
+        
+        if d == 1:
+            def func(u, z): 
+                if prop_z[np.where(supp_z == z)[0][0]] >= u: return md(u) * s_cross(d, z, dz_cross)
+                else: return 0
+
+        # Integrate func over u in [0,1] for every z in supp_z
+        return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i]
+            for i, z in enumerate(supp_z)])
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -130,21 +155,31 @@ def m1_dgp(u):
 
 # Function computing identified parameters from dgp
 def compute_estimand_dgp(estimand, m0, m1, u_lo = 0, u_hi = 1, 
-                     supp_z = 0, prop_z = 0, f_z = 0):
+                     supp_z = None, prop_z = None, f_z = None, dz_cross = None):
 
-    if estimand not in ["iv_slope", "late"]:
-        raise ValueError("estimand must be either 'iv_slope' or 'late'")
+    if estimand not in ["iv_slope", "late", "ols_slope", "cross"]:
+        raise ValueError("estimand must be either 'iv_slope', 'late' 'ols_slope', or 'cross'")
     
     if estimand == "late":
         a = gamma_star(m0, 0, estimand, u_lo = u_lo, u_hi = u_hi)
         b = gamma_star(m1, 1, estimand, u_lo = u_lo, u_hi = u_hi)
 
-    elif estimand == "iv_slope":
+    elif estimand == "iv_slope" or estimand == "ols_slope":
         a = gamma_star(m0, 0, estimand, 
         supp_z = supp_z, prop_z = prop_z, f_z = f_z)
         
         b = gamma_star(m1, 1, estimand, 
         supp_z = supp_z, prop_z = prop_z, f_z = f_z) 
+        
+
+    elif estimand == "cross":
+        a = gamma_star(m0, 0, estimand,
+        dz_cross = dz_cross,
+        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+
+        b = gamma_star(m1, 1, estimand,
+        dz_cross = dz_cross,
+        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
 
     return a + b
 
@@ -153,7 +188,7 @@ def compute_estimand_dgp(estimand, m0, m1, u_lo = 0, u_hi = 1,
 # Function sending data to AMPL
 
 def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=None, u_hi=None,
-                     supp_z = None, prop_z = None, f_z = None):
+                     supp_z = None, prop_z = None, f_z = None, dz_cross = None):
     """
     Compute gamma* evaluated at different basis functions
     Args:
@@ -167,13 +202,14 @@ def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=No
         supp_z (np.array): support of the instrument
         prop_z (np.array): propensity given the instrument
         f_z (np.array): probability mass function of the instrument
+        dz_cross (list): list of tuples of the form (d_spec, z_spec) for cross-moment
 
     Returns:
         gamma_df (pd.DataFrame): a dataframe of length k0 + k1
     """
     
-    if target not in ["iv_slope", "late"]:
-        raise ValueError("target must be either 'iv_slope' or 'late'")
+    if target not in ["iv_slope", "late", "ols_slope", "cross"]:
+        raise ValueError("target must be either 'iv_slope', 'late', 'ols_slope' or 'cross'")
     
     if basis not in ["bernstien", "cs"]:
         raise ValueError("basis must be either 'bernstein' or 'cs'")
@@ -184,6 +220,9 @@ def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=No
     if basis == "cs" and u_part is None:
         raise ValueError("u_part must be specified for cs basis")
     
+    if target == "cross" and dz_cross is None:
+        raise ValueError("dz_cross must be specified for cross-moment")
+
     # Compute gamma* for d = 0
 
     if basis == "bernstein":
@@ -206,13 +245,23 @@ def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=No
                     gamma1[i] = gamma_star(func, 1, target, 
                         u_lo = u_lo, u_hi = u_hi)
 
-                elif target == "iv_slope":
+                elif target == "iv_slope" or target == "ols_slope":
                     gamma0[i] = gamma_star(func, 0, target, 
                         supp_z = supp_z, prop_z = prop_z, f_z = f_z)
                     
                     gamma1[i] = gamma_star(func, 1, target, 
                         supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+                    
+                elif target == "cross":
+                    gamma0[i] = gamma_star(func, 0, target, 
+                        dz_cross = dz_cross,
+                        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+                    
+                    gamma1[i] = gamma_star(func, 1, target, 
+                        dz_cross = dz_cross,
+                        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
     
+
     # Generate column vector of names for d=0, d=1, and k1, k2
     if basis == "bernstein":
         d0 = ["theta0_" + str(i) for i in range(k0)]
@@ -234,7 +283,7 @@ def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=No
 
 # Write a function that generates this AMPL code and runs it in ampl_eval
 # Function that generates AMPL code
-def ampl_code(min_or_max):
+def ampl_code(min_or_max, identif):
     """
     Generate AMPL code for the identified set
     Args:
@@ -247,12 +296,14 @@ def ampl_code(min_or_max):
     # Define sets
     ampl_code = "reset;\n"
     ampl_code += "set THETA;\n"
-    ampl_code += "set IDENTIF;\n"
+    for i in range(len(identif)):
+        ampl_code += "set IDENTIF_" + str(i) + ";\n"
 
     # Define parameters
     ampl_code += "param gamma {THETA};\n"
-    ampl_code += "param gamma_ident {THETA};\n"
-    ampl_code += "param iv {IDENTIF};\n"
+    for i in range(len(identif)):
+        ampl_code += "param gamma_ident_" + str(i) + " {THETA};\n"
+        ampl_code += "param val_identif_" + str(i) + " {IDENTIF_" + str(i) + "};\n"
 
     # Choice variable
     ampl_code += "var Theta_val {j in THETA} >= 0, <= 1;\n"
@@ -261,34 +312,40 @@ def ampl_code(min_or_max):
     ampl_code += min_or_max + " beta: sum {j in THETA} gamma[j] * Theta_val[j];\n"
 
     # Constraints
-    # TODO write code for set with more than 1 identified parameter
-    ampl_code += "subject to Identified {i in IDENTIF}:\n"
-    ampl_code += "sum {j in THETA} gamma_ident[j] * Theta_val[j] == iv[i];\n"
+    for i in range(len(identif)):
+        ampl_code += "subject to Identified_" + str(i) + " {i in IDENTIF_" + str(i) + "}:\n"
+        ampl_code += "sum {j in THETA} gamma_ident_" + str(i) + "[j] * Theta_val[j] == val_identif_" + str(i) + "[i];\n"
 
     return ampl_code
 
+def combine_gamma_df(gamma_df, gamma_ident_df):
+    """Combine gamma_df and gamma_ident_df into one dataframe;
+    gamma_ident_df can be a list of dataframes
+    """
+
 # Send data to AMPL
-def ampl_send_data(ampl, gamma_df, gamma_ident_df, iv_df):
+def ampl_send_data(ampl, gamma_df, gamma_ident_df, iv_df, identif):
     """
     Send data to AMPL
     Args:
         ampl (amplpy.AMPL): an AMPL object
         gamma_comb_df (pd.DataFrame): a dataframe of length k0 + k1
-        iv_df (pd.DataFrame): a dataframe of length k0 + k1
+        iv_df (list): list of dataframes holding the identified estimands
     """
     # Send data to AMPL
     gamma_comb_df = gamma_df.join(gamma_ident_df)
 
     ampl.set_data(gamma_comb_df, "THETA")
-    ampl.set_data(iv_df, "IDENTIF")
+    for i in range(len(identif)):
+        ampl.set_data(iv_df[i], "IDENTIF_" + str(i))
 
 # Write function to solve the model/run the ampl code
-def ampl_eval(ampl_code, gamma_df, gamma_ident_df, iv_df, quiet=False):
+def ampl_eval(ampl_code, gamma_df, gamma_ident_df, iv_df, identif, quiet=False):
     ampl = AMPL()
     ampl.eval(ampl_code)
 
     # Send data
-    ampl_send_data(ampl, gamma_df, gamma_ident_df, iv_df)
+    ampl_send_data(ampl, gamma_df, gamma_ident_df, iv_df, identif)
 
     ampl.option["solver"] = "highs"
     ampl.option["solves_msg"] = 0

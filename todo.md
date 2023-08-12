@@ -1,5 +1,10 @@
 # Todos
 
+## Bugs/Improvements
+
+- Fix the indexing for OLS and IV arrays --> have to always specify IV before ols
+- Fix IV Slope coefficient for binary based on discrete
+
 ## Identification
 
 General:
@@ -7,6 +12,8 @@ General:
 - Get multiple identified estimands to work
 - Write function that plots figures
 - Option to plot maximizing MTRs
+- Closed form Bernstein polynomials
+- Implement binarized instrument via baseline IV and binarized IV
 
 Specific to figures:
 
