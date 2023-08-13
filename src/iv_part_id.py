@@ -7,6 +7,7 @@ def iv_part_id(
             basis, 
             m0_dgp,
             m1_dgp,
+            shape=None,
             k0=None, 
             k1=None, 
             u_part = None, 
@@ -18,6 +19,7 @@ def iv_part_id(
             prop_z = None,
             f_z = None,
             dz_cross = None,
+            analyt_int = False,
             quiet = False
             ):
     
@@ -25,6 +27,7 @@ def iv_part_id(
     Arguments:
         - target: the target paramenter 
         - identif: the set of identified parameters
+        - shape: shape restrictions on MTR functions
         - basis: the basis function to approximate M 
         - m0_dgp: the DGP for m0
         - m1_dgp: the DGP for m1
@@ -39,6 +42,7 @@ def iv_part_id(
         - prop_z = None: propensity score as a function of the instrument(s)
         - f_z = None: support of the instrument(s)
         - dz_cross = None: the cross moment of the instrument(s)
+        - analyt_int = False: whether to use analytical integration or not
         - quiet = False: whether to print the ampl messages or not
     
     Returns:
@@ -153,7 +157,8 @@ def iv_part_id(
         u_hi_target, 
         supp_z, 
         prop_z, 
-        f_z)
+        f_z, 
+        analyt_int = analyt_int)
     
     # Compute gamma dataframe (identif)
     gamma_id_df = []
@@ -167,6 +172,7 @@ def iv_part_id(
             u_part=u_part,
             u_lo=u_lo_id,
             u_hi=u_hi_id,
+            analyt_int = analyt_int
             )
 
         df = df.rename(columns={"gamma": "gamma_ident_" + str(0)})
@@ -182,6 +188,7 @@ def iv_part_id(
                 u_part=u_part,
                 u_lo=u_lo_id[i],
                 u_hi=u_hi_id[i],
+                analyt_int = analyt_int
                 )
 
             df = df.rename(columns={"gamma": "gamma_ident_" + str(i)})
@@ -196,7 +203,8 @@ def iv_part_id(
             u_part=u_part,
             supp_z=supp_z[0],
             prop_z=prop_z[0],
-            f_z=f_z[0]
+            f_z=f_z[0],
+            analyt_int = analyt_int
             )
 
         df = df.rename(columns={"gamma": "gamma_ident_" + str(n_late)})
@@ -213,7 +221,7 @@ def iv_part_id(
                     u_part=u_part,
                     supp_z=supp_z[i],
                     prop_z=prop_z[i],
-                    f_z=f_z[i]
+                    f_z=f_z[i], analyt_int = analyt_int
                     )
         
                 df = df.rename(columns={"gamma": "gamma_ident_" + str(i + n_late)})
@@ -228,7 +236,7 @@ def iv_part_id(
             u_part=u_part,
             supp_z=supp_z[0 + n_iv_slope],
             prop_z=prop_z[0 + n_iv_slope],
-            f_z=f_z[0 + n_iv_slope]
+            f_z=f_z[0 + n_iv_slope], analyt_int = analyt_int
             )
 
         df = df.rename(columns={"gamma": "gamma_ident_" + str(n_late + n_iv_slope)})
@@ -245,7 +253,7 @@ def iv_part_id(
                     u_part=u_part,
                     supp_z=supp_z[i],
                     prop_z=prop_z[i],
-                    f_z=f_z[i]
+                    f_z=f_z[i], analyt_int = analyt_int
                     )
         
                 df = df.rename(columns={"gamma": "gamma_ident_" + str(i + n_late + n_iv_slope)})
@@ -261,7 +269,7 @@ def iv_part_id(
             supp_z=supp_z[0],
             prop_z=prop_z[0],
             f_z=f_z[0],
-            dz_cross=dz_cross[0]
+            dz_cross=dz_cross[0], analyt_int = analyt_int
             )
 
         df = df.rename(columns={"gamma": "gamma_ident_" + str(n_late + n_iv_slope + n_ols_slope)})
@@ -279,7 +287,8 @@ def iv_part_id(
                     supp_z=supp_z[0],
                     prop_z=prop_z[0],
                     f_z=f_z[0],
-                    dz_cross=dz_cross[i]
+                    dz_cross=dz_cross[i],
+                    analyt_int = analyt_int
                     )
         
                 df = df.rename(columns={"gamma": "gamma_ident_" + str(i + n_late + n_iv_slope + n_ols_slope)})
@@ -288,11 +297,11 @@ def iv_part_id(
     # Now combine all gamma dataframes
     gamma_id_df = pd.concat(gamma_id_df, axis=1)
 
-    code = ampl_code("minimize", identif)
+    code = ampl_code("minimize", identif, shape, u_part)
     print(code)
     results_min = ampl_eval(code, gamma_df, gamma_id_df, iv_df, identif, quiet)
 
-    code = ampl_code("maximize", identif)
+    code = ampl_code("maximize", identif, shape, u_part)
     print(code)
     results_max = ampl_eval(code, gamma_df, gamma_id_df, iv_df, identif, quiet)
 

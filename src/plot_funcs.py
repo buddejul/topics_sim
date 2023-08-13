@@ -7,6 +7,7 @@ from iv_part_id import *
 def plot_fig(
         identif, # the set of identified estimands
         basis, # the basis function to use for approximation
+        shape = None, # shape restriction
         target = None, # the target estimand
         u_lo_target = None, # if target = LATE: lower u
         u_hi_target = None, # if target = LATE: upper u
@@ -23,6 +24,7 @@ def plot_fig(
         m0_dgp = None,
         m1_dgp = None,
         print_bounds = True,
+        analyt_int = False,
         quiet = True
         ):
     
@@ -47,11 +49,15 @@ def plot_fig(
     if n_cross > 0 and dz_cross == None:
         raise ValueError("Need to supply dz_cross for cross moments")
 
+    # if shape not in ["incr", "decr", None]:
+    #     raise ValueError("shape must be incr, decr, or None")
+
     # Get partial indentification results
     if target != None:
         results = iv_part_id(
             target = target,
             identif = identif,
+            shape = shape,
             basis = basis,
             m0_dgp=m0_dgp,
             m1_dgp=m1_dgp,
@@ -62,6 +68,7 @@ def plot_fig(
             f_z=f_z,
             dz_cross = dz_cross,
             prop_z=prop_z,
+            analyt_int=analyt_int,
             quiet = quiet
         )
 

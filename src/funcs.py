@@ -4,7 +4,6 @@ import scipy.integrate as integrate
 import pandas as pd
 from amplpy import AMPL
 
-
 # Define basis functions
 def cs_basis(u_lo, u_hi, u):
     """Constant spline basis function (no covariates)"""
@@ -61,7 +60,25 @@ def gamma_star(
         supp_z=None,
         prop_z=None,
         f_z=None,
-        dz_cross=None):
+        dz_cross=None,
+        analyt_int=False,
+        u_part = None,
+        u_part_lo = None,
+        u_part_hi = None):
+    
+    """ Compute gamma* for a given MTR function and estimand
+    Args:
+        md (function): MTR function
+        d (np.int): value of the treatment
+        estimand (str): the estimand to compute
+        u_lo (float): lower bound of late target
+        u_hi (float): upper bound of late target
+        supp_z (np.array): support of the instrument
+        prop_z (np.array): propensity given the instrument
+        f_z (np.array): probability mass function of the instrument
+        dz_cross (list): list of tuples of the form (d_spec, z_spec) for cross-moment
+        analyt_int (Boolean): Whether to integate manually or use analytic results
+    """
 
     if estimand not in ["iv_slope", "late", "ols_slope", "cross"]:
         raise ValueError("estimand must be either 'iv_slope', 'late', 'ols_slope' or 'cross'")
@@ -73,63 +90,114 @@ def gamma_star(
     if estimand == "cross":
         if dz_cross is None:
             raise ValueError("dz_cross must be specified for cross-moment")
+    
+    if analyt_int == True and u_part is None:
+            raise ValueError("u_part must be specified for cs basis")
 
     if estimand == "late": 
         return integrate.quad(
-            lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
-
-    elif estimand == "iv_slope":
-        ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
-
-        if d == 0:
-            def func(u, z): 
-                if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_iv_slope(z, ez, cov_dz)
-                else : return 0
-
-        if d == 1:
-            def func(u, z): 
-                if prop_z[np.where(supp_z == z)[0][0]] > u: return md(u) * s_iv_slope(z, ez, cov_dz)
-                else : return 0
-
-        # Integrate func over u in [0,1] for every z in supp_z
-        return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i] 
-            for i, z in enumerate(supp_z)])
+            lambda u: md(u) * s_late(d, u, u_lo, u_hi), u_lo, u_hi)[0]
     
-    elif estimand == "ols_slope":
-        ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
-        var_d = ed * (1 - ed)
+    # Do integration manually via scipy integrate
+    if analyt_int == False: 
+        if estimand == "iv_slope":
+            ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
 
-        if d == 0:
-            # need to condition on z
-            def func(u, z):
-                if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_ols_slope(d, ed, var_d)
-                else : return 0
+            if d == 0:
+                def func(u, z): 
+                    if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_iv_slope(z, ez, cov_dz)
+                    else : return 0
 
-        if d == 1:
-            def func(u, z):
-                if prop_z[np.where(supp_z == z)[0][0]] > u: return md(u) * s_ols_slope(d, ed, var_d)
-                else : return 0
+            if d == 1:
+                def func(u, z): 
+                    if prop_z[np.where(supp_z == z)[0][0]] > u: return md(u) * s_iv_slope(z, ez, cov_dz)
+                    else : return 0
 
-        # Integrate func over u in [0,1] for every z in supp_z
-        return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i]
-            for i, z in enumerate(supp_z)])
-    
-    elif estimand == "cross":
-        if d == 0:
-            def func(u, z): 
-                if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_cross(d, z, dz_cross)
-                else: return 0
+            # Integrate func over u in [0,1] for every z in supp_z
+            return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i] 
+                for i, z in enumerate(supp_z)])
         
-        if d == 1:
-            def func(u, z): 
-                if prop_z[np.where(supp_z == z)[0][0]] >= u: return md(u) * s_cross(d, z, dz_cross)
-                else: return 0
+        if estimand == "ols_slope":
+            ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
+            var_d = ed * (1 - ed)
 
-        # Integrate func over u in [0,1] for every z in supp_z
-        return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i]
-            for i, z in enumerate(supp_z)])
+            if d == 0:
+                # need to condition on z
+                def func(u, z):
+                    if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_ols_slope(d, ed, var_d)
+                    else : return 0
+
+            if d == 1:
+                def func(u, z):
+                    if prop_z[np.where(supp_z == z)[0][0]] > u: return md(u) * s_ols_slope(d, ed, var_d)
+                    else : return 0
+
+            # Integrate func over u in [0,1] for every z in supp_z
+            return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i]
+                for i, z in enumerate(supp_z)])
+        
+        if estimand == "cross":
+            if d == 0:
+                def func(u, z): 
+                    if prop_z[np.where(supp_z == z)[0][0]] < u: return md(u) * s_cross(d, z, dz_cross)
+                    else: return 0
+            
+            if d == 1:
+                def func(u, z): 
+                    if prop_z[np.where(supp_z == z)[0][0]] >= u: return md(u) * s_cross(d, z, dz_cross)
+                    else: return 0
+
+            # Integrate func over u in [0,1] for every z in supp_z
+            return np.sum([integrate.quad(func, 0, 1, args=(z,))[0] * f_z[i]
+                for i, z in enumerate(supp_z)])
+
+    # Use analytic results on constant spline basis
+    if analyt_int == True:
+
+        if estimand == "iv_slope":
+            ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
+
+            if d == 0: 
+                    return (u_part_hi - u_part_lo) * np.sum(
+                            [f_z[j] * s_iv_slope(z, ez, cov_dz) * (prop_z[j] <= u_part_lo)
+                            for j, z in enumerate(supp_z)])
 
 
+            if d == 1:
+                    return (u_part_hi - u_part_lo) * np.sum(
+                            [f_z[j] * s_iv_slope(z, ez, cov_dz) * (prop_z[j] >= u_part_hi)
+                            for j, z in enumerate(supp_z)])
+            
+        if estimand == "ols_slope":
+            ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
+            var_d = ed * (1 - ed)
+
+            if d == 0: 
+                    return (u_part_hi - u_part_lo) * np.sum(
+                            [f_z[j] * s_ols_slope(d, ed, var_d) * (prop_z[j] <= u_part_lo)
+                            for j, z in enumerate(supp_z)])
+
+
+            if d == 1:
+                    return (u_part_hi - u_part_lo) * np.sum(
+                            [f_z[j] * s_ols_slope(d, ed, var_d) * (prop_z[j] >= u_part_hi)
+                            for j, z in enumerate(supp_z)])
+            
+        if estimand == "cross":
+            ez, ed, edz, cov_dz = compute_moments(supp_z, f_z, prop_z)
+            var_d = ed * (1 - ed)
+
+            if d == 0: 
+                    return (u_part_hi - u_part_lo) * np.sum(
+                            [f_z[j] * s_cross(d, z, dz_cross) * (prop_z[j] <= u_part_lo)
+                            for j, z in enumerate(supp_z)])
+
+
+            if d == 1:
+                    return (u_part_hi - u_part_lo) * np.sum(
+                            [f_z[j] * s_cross(d, z, dz_cross) * (prop_z[j] >= u_part_hi)
+                            for j, z in enumerate(supp_z)])
+            
 def compute_moments(supp_z, f_z, prop_z):
     """Calculate E[z], E[d], E[dz], Cov[d,z] for a discrete instrument z
     and binary d 
@@ -155,31 +223,36 @@ def m1_dgp(u):
 
 # Function computing identified parameters from dgp
 def compute_estimand_dgp(estimand, m0, m1, u_lo = 0, u_hi = 1, 
-                     supp_z = None, prop_z = None, f_z = None, dz_cross = None):
+                     supp_z = None, prop_z = None, f_z = None, dz_cross = None,
+                     u_part = None, analyt_int = False):
 
     if estimand not in ["iv_slope", "late", "ols_slope", "cross"]:
         raise ValueError("estimand must be either 'iv_slope', 'late' 'ols_slope', or 'cross'")
     
     if estimand == "late":
-        a = gamma_star(m0, 0, estimand, u_lo = u_lo, u_hi = u_hi)
-        b = gamma_star(m1, 1, estimand, u_lo = u_lo, u_hi = u_hi)
+        a = gamma_star(m0, 0, estimand, u_lo = u_lo, u_hi = u_hi, u_part = u_part, analyt_int = analyt_int)
+        b = gamma_star(m1, 1, estimand, u_lo = u_lo, u_hi = u_hi, u_part = u_part, analyt_int = analyt_int)
 
     elif estimand == "iv_slope" or estimand == "ols_slope":
         a = gamma_star(m0, 0, estimand, 
-        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+        u_part = u_part, analyt_int = analyt_int)
         
         b = gamma_star(m1, 1, estimand, 
-        supp_z = supp_z, prop_z = prop_z, f_z = f_z) 
+        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+        u_part = u_part, analyt_int = analyt_int) 
         
 
     elif estimand == "cross":
         a = gamma_star(m0, 0, estimand,
         dz_cross = dz_cross,
-        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+        u_part = u_part, analyt_int = analyt_int)
 
         b = gamma_star(m1, 1, estimand,
         dz_cross = dz_cross,
-        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+        u_part = u_part, analyt_int = analyt_int)
 
     return a + b
 
@@ -188,7 +261,7 @@ def compute_estimand_dgp(estimand, m0, m1, u_lo = 0, u_hi = 1,
 # Function sending data to AMPL
 
 def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=None, u_hi=None,
-                     supp_z = None, prop_z = None, f_z = None, dz_cross = None):
+                     supp_z = None, prop_z = None, f_z = None, dz_cross = None, analyt_int = False):
     """
     Compute gamma* evaluated at different basis functions
     Args:
@@ -240,26 +313,36 @@ def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=No
 
                 if target == "late":
                     gamma0[i] = gamma_star(func, 0, target, 
-                        u_lo = u_lo, u_hi = u_hi)
+                        u_lo = u_lo, u_hi = u_hi, u_part = u_part, analyt_int = analyt_int,
+                        u_part_lo = u_part[i], u_part_hi = u_part[i+1])
                     
                     gamma1[i] = gamma_star(func, 1, target, 
-                        u_lo = u_lo, u_hi = u_hi)
+                        u_lo = u_lo, u_hi = u_hi, u_part = u_part, analyt_int = analyt_int,
+                        u_part_lo = u_part[i], u_part_hi = u_part[i+1])
 
                 elif target == "iv_slope" or target == "ols_slope":
                     gamma0[i] = gamma_star(func, 0, target, 
-                        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+                        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+                        u_part = u_part, analyt_int = analyt_int,
+                        u_part_lo = u_part[i], u_part_hi = u_part[i+1])
                     
                     gamma1[i] = gamma_star(func, 1, target, 
-                        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+                        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+                        u_part = u_part, analyt_int = analyt_int,
+                        u_part_lo = u_part[i], u_part_hi = u_part[i+1])
                     
                 elif target == "cross":
                     gamma0[i] = gamma_star(func, 0, target, 
                         dz_cross = dz_cross,
-                        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+                        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+                        u_part = u_part, analyt_int = analyt_int,
+                        u_part_lo = u_part[i], u_part_hi = u_part[i+1])
                     
                     gamma1[i] = gamma_star(func, 1, target, 
                         dz_cross = dz_cross,
-                        supp_z = supp_z, prop_z = prop_z, f_z = f_z)
+                        supp_z = supp_z, prop_z = prop_z, f_z = f_z, 
+                        u_part = u_part, analyt_int = analyt_int,
+                        u_part_lo = u_part[i], u_part_hi = u_part[i+1])
     
 
     # Generate column vector of names for d=0, d=1, and k1, k2
@@ -283,7 +366,7 @@ def compute_gamma_df(target, basis, k0 = None, k1 = None, u_part = None, u_lo=No
 
 # Write a function that generates this AMPL code and runs it in ampl_eval
 # Function that generates AMPL code
-def ampl_code(min_or_max, identif):
+def ampl_code(min_or_max, identif, shape, u_part):
     """
     Generate AMPL code for the identified set
     Args:
@@ -305,7 +388,7 @@ def ampl_code(min_or_max, identif):
         ampl_code += "param gamma_ident_" + str(i) + " {THETA};\n"
         ampl_code += "param val_identif_" + str(i) + " {IDENTIF_" + str(i) + "};\n"
 
-    # Choice variable
+    # Choice variable (note this is equivalent to Y in [0,1] constraint, see MST 2018 Appendix)
     ampl_code += "var Theta_val {j in THETA} >= 0, <= 1;\n"
 
     # Objective function    
@@ -316,6 +399,31 @@ def ampl_code(min_or_max, identif):
         ampl_code += "subject to Identified_" + str(i) + " {i in IDENTIF_" + str(i) + "}:\n"
         ampl_code += "sum {j in THETA} gamma_ident_" + str(i) + "[j] * Theta_val[j] == val_identif_" + str(i) + "[i];\n"
 
+    # Shape restrictions (for Bernstein polynomials or constant splines)
+    if shape != None:
+        if len(shape) == 1 and shape[0] == "decr":
+            for j in range(len(u_part)-2):
+                ampl_code += "subject to DecreasingConstraint_d0_" + str(j) + ":\n"
+                ampl_code += "Theta_val['theta0_" + str(j) + "'] >= Theta_val['theta0_" + str(j+1) + "'];\n"
+
+                ampl_code += "subject to DecreasingConstraint_d1_" + str(j) + ":\n"
+                ampl_code += "Theta_val['theta1_" + str(j) + "'] >= Theta_val['theta1_" + str(j+1) + "'];\n"
+
+            # ampl_code += "var Binary_var {j in 2..card(THETA)} binary";  # Binary variable for ordering
+
+            # # Define constraints to enforce decreasing order
+            # ampl_code += "subject to OrderConstraint {j in 2..card(THETA)}:"
+            # ampl_code += "Theta_val[j-1] >= Theta_val[j] - Binary_var[j];"
+
+            # # Set the binary variables consistently with the ordering
+            # ampl_code += "subject to BinarySettingConstraint {j in 2..card(THETA)}:"
+            # ampl_code += " Binary_var[j] <= Binary_var[j-1];"
+
+    if shape != None:
+        if len(shape) == 1 and shape[0] == "incr":
+            ampl_code += "subject to Increasing {j in 1..card(THETA)-1}:\n"
+            ampl_code += "Theta_val[j] <= Theta_val[j+1];\n"
+        
     return ampl_code
 
 def combine_gamma_df(gamma_df, gamma_ident_df):
