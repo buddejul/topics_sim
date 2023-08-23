@@ -46,8 +46,9 @@ def s_late(d, u, u_lo, u_hi):
 def s_cross(d, z, dz_cross):
     """ IV_like specification s(d,z): Cross-moment d_spec * z_spec
     """
-    if d == dz_cross[0] and z == dz_cross[1]: return 1
-    else: return 0
+    if (isinstance(d, np.ndarray) or d in [0,1]) and isinstance(z, np.ndarray):
+        return np.logical_and(d == dz_cross[0], z == dz_cross[1]).astype(int)
+    else: return 1 if d == dz_cross[0] and z == dz_cross[1] else 0
 
 
 # Gamma* linear maps
@@ -408,21 +409,6 @@ def ampl_code(min_or_max, identif, shape, u_part):
 
                 ampl_code += "subject to DecreasingConstraint_d1_" + str(j) + ":\n"
                 ampl_code += "Theta_val['theta1_" + str(j) + "'] >= Theta_val['theta1_" + str(j+1) + "'];\n"
-
-            # ampl_code += "var Binary_var {j in 2..card(THETA)} binary";  # Binary variable for ordering
-
-            # # Define constraints to enforce decreasing order
-            # ampl_code += "subject to OrderConstraint {j in 2..card(THETA)}:"
-            # ampl_code += "Theta_val[j-1] >= Theta_val[j] - Binary_var[j];"
-
-            # # Set the binary variables consistently with the ordering
-            # ampl_code += "subject to BinarySettingConstraint {j in 2..card(THETA)}:"
-            # ampl_code += " Binary_var[j] <= Binary_var[j-1];"
-
-    if shape != None:
-        if len(shape) == 1 and shape[0] == "incr":
-            ampl_code += "subject to Increasing {j in 1..card(THETA)-1}:\n"
-            ampl_code += "Theta_val[j] <= Theta_val[j+1];\n"
         
     return ampl_code
 
@@ -441,9 +427,14 @@ def ampl_send_data(ampl, gamma_df, gamma_ident_df, iv_df, identif):
         iv_df (list): list of dataframes holding the identified estimands
     """
     # Send data to AMPL
-    gamma_comb_df = gamma_df.join(gamma_ident_df)
+    if gamma_df is not None:
+        gamma_comb_df = gamma_df.join(gamma_ident_df)
 
-    ampl.set_data(gamma_comb_df, "THETA")
+        ampl.set_data(gamma_comb_df, "THETA")
+  
+    else :
+        ampl.set_data(gamma_ident_df, "THETA")
+  
     for i in range(len(identif)):
         ampl.set_data(iv_df[i], "IDENTIF_" + str(i))
 

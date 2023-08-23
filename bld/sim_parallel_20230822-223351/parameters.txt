@@ -1,0 +1,6 @@
+N_vals = [1000, 10000, 25000]
+R = 1000
+tolerances = [N**(-2), N**(-1)] 
+target = late
+u_lo_target = 0.2
+u_hi_target = 0.9

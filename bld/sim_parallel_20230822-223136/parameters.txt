@@ -1,0 +1,6 @@
+N_vals = [1000, 10000, 25000]
+R = 10
+tolerances = <map object at 0x0000018E4157D780>
+target = late
+u_lo_target = 0.2
+u_hi_target = 0.9

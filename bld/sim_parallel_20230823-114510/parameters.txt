@@ -1,0 +1,5 @@
+N_vals = [10000]
+R = 5
+tolerances = [N**(-1)] 
+target = late
+u_lo_target = 0.2

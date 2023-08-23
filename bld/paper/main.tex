@@ -1,0 +1,88 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\usepackage{parskip}
+\setlength{\parskip}{\baselineskip}%
+\setlength{\parindent}{0pt}%
+
+\usepackage{enumitem}
+\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
+
+\usepackage[normalem]{ulem}
+
+\usepackage{fourier} 
+\usepackage{array}
+\usepackage{makecell}
+
+\renewcommand\theadalign{bc}
+\renewcommand\theadfont{\bfseries}
+\renewcommand\theadgape{\Gape[4pt]}
+\renewcommand\cellgape{\Gape[4pt]}
+
+\usepackage[
+backend=biber,
+style=authoryear,
+citestyle=authoryear,
+maxbibnames=99,
+uniquelist=false,
+natbib=true
+]{biblatex}
+\addbibresource{BibTex.bib}
+\usepackage{graphicx}
+\graphicspath{ {Images/} }
+
+%adjustment of page parameters
+\usepackage[left=3cm, right=2cm, top=2.5cm, bottom=2.5cm]{geometry}
+\renewcommand{\baselinestretch}{1.5} 		%line spacing is set to 1.5
+\setlength{\footnotesep}{10.0pt}				%space between footnote and text
+
+
+\usepackage{hyperref}
+
+\usepackage[onehalfspacing]{setspace}
+
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{adjustbox}
+\usepackage{threeparttable}
+\usepackage{amsmath}
+\usepackage{pdfpages}
+
+\newcommand\fnote[1]{\captionsetup{font=small}\caption*{#1}}
+\usepackage{caption}
+
+\usepackage{tikz}
+\usetikzlibrary{calc,intersections, decorations.pathreplacing}
+\usetikzlibrary{patterns}
+
+\usepackage{comment}
+
+\usepackage[capposition=top]{floatrow}
+
+\title{\Large Econometrics Topics Course: Simulation}
+
+\author{Julian Budde}
+\date{\today}
+
+\usepackage{pdflscape}
+
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section{Results}
+\include{tables/table_by_tol_N1000_R1000}
+\include{tables/table_by_tol_N10000_R1000}
+\include{tables/table_by_tol_N25000_R1000}
+\include{tables/only_d0_cross/table_by_tol_N1000_R1000}
+\include{tables/only_d0_cross/table_by_tol_N10000_R1000}
+\include{tables/only_d0_cross/table_by_tol_N25000_R1000}
+\include{tables/only_d1_cross/table_by_tol_N1000_R1000}
+\include{tables/only_d1_cross/table_by_tol_N10000_R1000}
+\include{tables/only_d1_cross/table_by_tol_N25000_R1000}
+
+
+\end{document}

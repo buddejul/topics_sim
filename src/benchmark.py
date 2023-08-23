@@ -27,22 +27,22 @@ stmt2 = '''iv_part_id(target = target,identif = ["cross","cross","cross","cross"
 
 cProfile.run(stmt2, sort='cumtime')
 
-# setup = '''
-# gc.enable()
-# from funcs import m0_dgp, m1_dgp
-# from iv_part_id import iv_part_id
-# import numpy as np
-# target = "late"
-# u_lo_target = 0.35
-# u_hi_target = 0.9
-# basis = "cs"
-# supp_z=[np.array([0, 1, 2])]
-# f_z=[np.array([0.5, 0.4, 0.1])]
-# prop_z=[np.array([0.35, 0.6, 0.7])]
-# u_part=np.array([0, 0.35, 0.60, 0.7, 0.90, 1])
-# dz_cross = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
-# '''
+setup = '''
+gc.enable()
+from funcs import m0_dgp, m1_dgp
+from iv_part_id import iv_part_id
+import numpy as np
+target = "late"
+u_lo_target = 0.35
+u_hi_target = 0.9
+basis = "cs"
+supp_z=[np.array([0, 1, 2])]
+f_z=[np.array([0.5, 0.4, 0.1])]
+prop_z=[np.array([0.35, 0.6, 0.7])]
+u_part=np.array([0, 0.35, 0.60, 0.7, 0.90, 1])
+dz_cross = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
+'''
 
-# t = timeit.Timer(stmt, setup)
+t = timeit.Timer(stmt, setup)
 
-# print(t.repeat(repeat=3, number=10))
+print(t.repeat(repeat=3, number=100))
