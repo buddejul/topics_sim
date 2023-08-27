@@ -18,29 +18,24 @@ if __name__ == '__main__':
         os.makedirs(bld)
 
     print("Number of processors: ", mp.cpu_count())
-    poolsize = mp.cpu_count() - 4
+    poolsize = mp.cpu_count() - 1
 
     # Initialize pool of cores
     pool = mp.Pool(poolsize)
 
-
-    # N = 1000
-    N_vals = [10000]
-    R = 5
+    N_vals = [25000, 50000]
+    R = 500
 
     def get_tolerances(N):
+        # return [N**(-0.5), 3*N**(-1), N**(-1), N**(-2)]
         return [N**(-1)]
 
     # Target parameter
     target = "late"
     u_lo_target = 0.35
-    u_lo_target = 0.2
     # u_hi_target = 0.9
 
-    num_points = 11  # The number of points to generate
-    start = 0  # The starting point
-    stop = 1  # The stopping point
-    u_hi_targetlist = np.linspace(start, stop, num_points)
+    u_hi_targetlist = np.arange(0.4, 1, 0.025)
 
     basis = "cs" # the basis function to use for approximation
     supp_z = [np.array([0, 1, 2])] # if identif = iv_slope: support of the instrument
@@ -81,7 +76,7 @@ if __name__ == '__main__':
                                 args = (N, R, supp_z, f_z, prop_z,
                                          target, identif, basis, tol, u_lo_target,
                                                  u_hi_target, dz_cross,
-                                                  False, True, bld)) for N, tol, u_hi_target in combinations]
+                                                  False, True, bld, False, True)) for N, tol, u_hi_target in combinations]
 
     pool.close()
     pool.join()

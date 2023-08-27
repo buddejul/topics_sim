@@ -51,6 +51,13 @@ def iv_part_id(
 
     """
 
+    # If u_lo_target > u_hi_target, reverse them
+    if u_lo_target > u_hi_target:
+        u_lo_target, u_hi_target = u_hi_target, u_lo_target
+
+    if u_lo_target > u_hi_target:
+        raise ValueError("u_lo_target > u_hi_target")
+
     # Get number of each type of identified parameter
     n_late = len([i for i in identif if "late" in i])
     n_iv_slope = len([i for i in identif if "iv_slope" in i])

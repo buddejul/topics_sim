@@ -446,7 +446,7 @@ def ampl_eval(ampl_code, gamma_df, gamma_ident_df, iv_df, identif, quiet=False):
     # Send data
     ampl_send_data(ampl, gamma_df, gamma_ident_df, iv_df, identif)
 
-    ampl.option["solver"] = "highs"
+    ampl.option["solver"] = "gurobi"
     ampl.option["solves_msg"] = 0
 
 

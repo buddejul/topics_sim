@@ -19,7 +19,10 @@ def iv_part_id_estimation(
             dz_cross = None,
             analyt_int = False,
             tol = None,
-            quiet = False
+            quiet = False,
+            return_gamma=False,
+            u_part_fix=False,
+            u_part_fix_tol=None
             ):
     
     """
@@ -33,14 +36,10 @@ def iv_part_id_estimation(
         - basis: the basis function to approximate M 
         - k0=None: the number of basis functions to approximate m0 
         - k1=None: the number of basis functions to approximate m1
-        - u_part = None: the partition of u into bins with constant weights
         - u_lo_target = None: the lower bound of late if target is late
         - u_hi_target = None: the upper bound of late if target is late
         - u_lo_id = None: lower bounds of late if identified is late
         - u_hi_id = None: upper bounds of late if identified is late
-        - supp_z = None: support of the instrument(s)
-        - prop_z = None: propensity score as a function of the instrument(s)
-        - f_z = None: support of the instrument(s)
         - dz_cross = None: the cross moment of the instrument(s)
         - analyt_int = False: whether to use analytical integration or not
         - tol: the tolerance for the estimatino problem
@@ -54,6 +53,16 @@ def iv_part_id_estimation(
 
     if tol is None:
         raise ValueError("Need to specify tolerance for estimation problem")
+    
+    # if u_part_fix is True and u_part_fix_tol is None:
+    #     raise ValueError("Need to specify tolerance for fixing partition")
+
+    # If u_lo_target > u_hi_target, reverse them
+    if u_lo_target > u_hi_target:
+        u_lo_target, u_hi_target = u_hi_target, u_lo_target
+
+    if u_lo_target > u_hi_target:
+        raise ValueError("u_lo_target > u_hi_target")
 
     # Get number of each type of identified parameter
     n_iv_slope = len([i for i in identif if "iv_slope" in i])
@@ -71,10 +80,26 @@ def iv_part_id_estimation(
     f_z = estimate_f_z(z)
     z_p = p[np.searchsorted(supp_z, z)] # vector of propensity scores (length N)
 
+    if u_part_fix is True:
+        # FIXME only for very special setting of LATE(0.35, ..) target
+        u_lo_target = p[0]
+
+        
+
+    # TODO Check this creates a new object (should work however, no assignment here)
     u_part = np.append(p, [u_lo_target, u_hi_target]) # add target cutoffs to partition
     u_part = np.unique(np.sort(u_part)) # make sure partition is ordered and remove duplicates
     u_part = np.insert(u_part, 0, 0) # add 0 to partition at beginning
     u_part = np.append(u_part, 1) # add 1 to partition
+
+    # Remove close elements
+    # if u_part_fix is True:
+    #     differences = np.diff(u_part)
+    #     indices_to_keep = np.insert(differences > u_part_fix_tol, 0, True)
+    #     u_part = u_part[indices_to_keep]
+        
+    #     # FIXME this only works for our special setting
+    #     u_lo_target = u_part[1]
     
     # TODO put function here that allows for target as functions of estimated
     # propensity score
@@ -122,6 +147,8 @@ def iv_part_id_estimation(
 
     # Compute gamma dataframe (target)
     # need to do this based on estimated moments (if not late)
+    # TODO could this be reason for the bug? --> but we supply prop_z = p
+    # which is the estimated moment so shouldn't be a problem?
     gamma_df = compute_gamma_df(
         target, 
         basis, 
@@ -182,4 +209,8 @@ def iv_part_id_estimation(
     if quiet is False: print(code_min)
     results_min = ampl_eval(code_min, gamma_df, gamma_id_df, iv_df, identif, quiet)
 
-    return inf_rhs, results_max, results_min
+    if return_gamma is False:
+        return results_max, results_min
+    
+    else:
+        return results_max, results_min, gamma_df, gamma_id_df, iv_df, p, val_estimands
