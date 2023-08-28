@@ -71,10 +71,25 @@ natbib=true
 
 \begin{document}
 
-\maketitle
+\title{Simulation: Inference About Policy Relevant Treatment Effects \thanks{Econometrics Topics Course, Summer 2023, University of Bonn.}}  
+
+\author{Julian Budde\thanks{University of Bonn}}
+ 
+\date{\today \\ \vspace{1em} Term Paper (Econometrics Topics Course Summer 2023)} 
+\maketitle 
+
+
+\begin{abstract}
+\citet{mogstad2018using} propose an identification framework for extrapolating from identified IV-like estimands to a broad set of policy relevant treatment effect parameters.
+I perform simulation studies using the estimators for the identified set proposed in the paper.
+\end{abstract} 
+
+\clearpage
+\pagebreak
 
 \tableofcontents
-
+\clearpage
+\newpage
 \section{Introduction}
 
 \section{The Identification Problem}
@@ -176,7 +191,7 @@ In particular, define for identified estimands $\beta_s$
 and for the target parameter $\beta^*$
 \begin{equation}
     \Gamma^*(m) = E\left[\int_0^1 m_0(u,X)\omega^*_{0}(u,Z)du\right]
-    + E\left[\int_0^1 m_1(u,X)\omega^*_{s}(u,Z)du\right].
+    + E\left[\int_0^1 m_1(u,X)\omega^*_{1}(u,Z)du\right].
 \end{equation}
 In both cases, $\omega_{ds}$ are the relevant weights implied by the IV-like specification.
 
@@ -320,17 +335,16 @@ Throughout the analysis I impose the restriction that the MTR functions $m$ are 
 
 In the following section I report a Figure similar to Figure 8 in the paper, which reports bounds for LATE(0.35, $\overline{u}$) for a range of values, although with a different parametric assumption on the MTRs.
 In addition to the identification result (which in the plot I call the "true bounds"), I also report estimation results.
-For a grid of $\overline{u}$ values, I estimate the bounds and plot their means and distributions.
-
-Throughout I use a sample size of $N=10000$, $R=1000$ replications and a tolerance for the identification constraint equivalent to $\frac{1}{N}$.
+For a grid of $\overline{u}$ values, I estimate the bounds and plot their means and distributions. Thus, the resulting plot consists of a separate simulation for each value of $\overline{u}$\footnote{This would not be the correct simulation design if we were interested in studying the joint distribution of estimators for different targets, but should be sufficient for studying individual consistency.}.
+Throughout, for each simulation I use a sample size of $N=10000$, $R=1000$ replications and a tolerance for the identification constraint equivalent to $\frac{1}{N}$.
 
 Before turning to the main results in the next section I want to discuss some practical issues I encountered during implementation. 
-First, the choice of the \textbf{tolerance criterion} $\kappa_n$ seems to be non-trivial. In Appendix Figure \ref{app_fig:tolerances} I report results for varying tolerances ($\kappa_n \in \{\frac{1}{\sqrt{n}, \frac{3}{n}, \frac{1}{n}, \frac{1}{n^2}}\}$).
+First, the choice of the \textbf{tolerance criterion} $\kappa_n$ seems to be non-trivial. In Appendix Figure \ref{app_fig:tolerances} I report results for varying tolerances ($\kappa_n \in \{\frac{1}{\sqrt{n}}, \frac{3}{n}, \frac{1}{n}, \frac{1}{n^2}\}$).
 A higher $\kappa_n$ should result in (weakly) wider bounds beause more MTR pairs satisfy the constraint. Choosing $\kappa_n$ too lower might result in a very noisy estimator; in the extreme case $\kappa_n = 0$ by construction we only have a single solution (assuming there is a unique minmizer which seems highly likely given the sampling).
 As expected I observe that bounds are significantly wider for $\kappa_n = \frac{1}{\sqrt{n}}$ and narrower when choosing on of the smaller tolerances. Choosing a $\kappa_n<\frac{1}{\sqrt{n}}$ also significatnly reduced bias. 
 Beyond a $\kappa_n$ of the order $\frac{1}{n}$ there does not seem to be much of a change, however.
 
-Second, I found that estimation results are highly unstable when the partition of $u$ includes values very close to each other. 
+Second, I found that estimation results are highly unstable when the \textbf{partition of $u$} includes values very close to each other. 
 When I first ran the simulation below which uses a target $LATE(0.35, \overline{u})$ I ran into this issue:
 Because $p(0) = 0.35$ for a large enough $N$, $\hat{p}(1)$ will be very close to 0.35, thus resulting in a partition that includes 0.35 as well as a number very close to it.
 The result is a bi-modal distrbution of the estimator for the lower bound, as shown in Appendix Figure \ref{app_fig:bimodal}. Similar issues arise for the upper bound when $\overline{u}$ comes close to $p(1)$ or $p(2)$.
@@ -342,52 +356,96 @@ This seems also the relevant usecase in practice: When a researcher estimates th
 \section{Results}
 The figure below reports identification and estimation results for each $LATE(0.35, \overline{u})$.
 
-\textbf{Identification}:
-\begin{itemize}
-    \item We achieve point identification for $\overline{u} \in \{0.6,0.7\}$.
-    \item Generally, as argued in the paper, extrapolation to parameters further away from what is point-identified results in wider bounds.
-    \item This is particularly striking for smaller values of $\overline{u}$, where for $\overline{u}<0.45$ bounds become completely uninformative ranging from $-1$ to $1$.
-    \item This is in stark contrast to the paper, and highlights the importance of shape restrictions (or in the case of the paper parametric assumptions) on the MTR functions.
-    \item Bounds for larger values are a lot smaller, highlighting that in some sense the data is more informative about individuals with a high resistance to treatment, i.e. high $u$ (Todo: Understand how so? "Informative"?).
-\end{itemize}
+\textbf{Identification}: Turning to identification first, a few things are noteworthy. 
+First, as alluded to earlier we achieve point identification for $LATE(0.35, 0.6)$ and $LATE(0.35, 0.7)$ as indicated by the upper and lower bound coinciding at these points.
+In that sense, the procedure covers point identification as a special case.
+Second, as argued in the paper, extrapolation to parameters "further" away from what is point-identified results in wider bounds.
+For example, for $\overline{u}\geq0.7$ bounds are monotonically increasing in $\overline{u}$. In cases of multiple point-identified estimands this relationship is obviously not monotone in $\overline{u}$ for all values, as shown for example by the range $\overline{u}\in[0.6, 0.7]$ in between the two point-identified estimands.
+Third, in stark contrast to the Figure 8 reported in the paper, which imposes parametric assumptions on the underlying MTR functions, the sharp non-parametric bounds reported here quickly become completely uninformative as $\overline{u}<0.6$ with bounds $[-1,1]$ for $\overline{u}\leq0.45$. This highlights the importance of assumptions on the ability to extrapolate.
+Interestingly, the sharp non-parametric bounds here are generally more narrow for $\overline{u}\geq0.7$ than $\overline{u}\leq0.6$, implying that the data alone in the form of the conditional moments $E[Y|D,Z]$ contain more information about these parameters.
+Imposing parametric assumptions in Figure 8 of the paper makes these bounds approximately equally wide, implying that the relative importance of parametric assumptions strongly varies by the target, i.e. $\overline{u}$.
 
-\textbf{Estimation}:
-\begin{itemize}
-    \item Estimated bounds are on average wider than the true bounds.
-    \item Most notably, for many of the target parameters the distribution is \textbf{bimodal}.
-    \item This is particulary true for the lower bounds which has a bimodal distribution for \textit{all} values of $\overline{u}$.
-    \item While the for values up to $0.7$ one of the modes seems to be close to the true bound, this is not the case for larger values of $\overline{u}$.
-    \item For the upper bounds distributoins are only bimodal in the range 0.6 to 0.7 (roughly or exactly?)
-    \item For all targets $>0.7$ the upper bound estimator is tightly centered.
-\end{itemize}
 
-\textbf{Questions}
-\begin{itemize}
-    \item Mean coverage might not be informative if for all estimators one bound covers while the other does not with roles reversing.
-\end{itemize}
+\textbf{Estimation}: In terms of estimation, I first finde that the average bounds in Figure \ref{fig:main_sim_violin} are for the most part too wide. This holds in particular for allmost all $\overline{u}$ for the estimator of the lower bound, while the upper bound overestimates the true bound for all values $\overline{u}\in[0.45, 0.75]$. For any larger values, the estimator for the upper bound has a mean indistinguishable from the true bound.
+Generally, for the given sample size the distributions of the estimators are fairly tightly centered around their respective means. For example, almost none of the individuals simulation runs for any of the lower bound estimators come cloe to the true estimator.
+While the \citet{mogstad2018using} only prove consistency and there is no reason to believe that the estimator is unbiased in finite samples, the quality of the result does not change when increasing the sample size. 
+If this was only a finite sample bias we would at least hope that the bias decreases when increasing $N$. Appendix Figure \ref{app_fig:large_n} reports simulation results in similar form for $N\in\{25000, 50000, 100000\}$. While the standard deviation of the estimator decreases as expected, estimated means are largely unchanged.
+If true, this would call into question the consistency of the estimator in this setting\footnote{While technically the estimator might still converge at some point, this seems unlikely. Also, for these sample sizes we would in any way hope for a lot smaller finite sample bias.}. 
+
+Figure \ref{fig:histos} additionally plots the distribution of the lower and upper bound estimators for a fixed $\overline{u}=0.95$.
+As noted, before this figure shows that the lower bound estimator considerabl underestimates the true bound, a feature also present for a large sample of $N=50,000$.
+The upper bound estimator, however, for this target parameter is tightly centered around the true mean. 
+To get a sense of the distribution, the plot overlays corresponding normal denities with matched means and variances. The upper bound estimator clearly has a non-standard asymmetric distribution, with a median to the right of the mean.
+For the lower bound estimator the distribution actually looks somewhat closer to a normal, although this is hard to judge as $R=500$ probably introduces noticeable simulation noise. 
 
 \begin{figure}
-    \caption{Simulation Results for Sharp Non-Parametric Bounds}
+    \caption{Simulation Results for Sharp Non-Parametric Bounds \label{fig:main_sim_violin}}
     \includegraphics[width = \textwidth]{graph/simulation_sharp_bounds_10000_500_0.0001.png}
-    \label{fig:main_sim_violin}
 \end{figure}
 
 \clearpage
 \newpage
 
-\section{Potential Future Analysis}
-\begin{itemize}
-    \item Weak IV
-    \begin{itemize}
-        \item Need to think about how this would be relevant; really weak IV is a failure of the regular asymptotic approximation to the finite sample distribution
-        thereby making inference unreliable. This is not really an identification problem; i.e. for a discrete IV as long as not all propensity scores are the same we can always point identify some LATE.
-        However, weak IV might show up in estimation of the bounds.
-        \item Case of weak IV/many weak IV
-        \item Weak IV for IV slope --> Use reduced form/cross-moments instead of IV-slope coefficient;
-        thereby avoiding weak IV problem. Is this a trade-off between estimation and inference? I.e. identification bounds become wider
-        but inference becomes more reliable?
-    \end{itemize}
-\end{itemize} 
+\begin{figure}[h!]
+    \caption{Distribution of Estimator for $LATE(0.35, 0.9)$ by $N$ \label{fig:histos}}
+     \centering
+
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+          \includegraphics[width=\textwidth]{graph/histo_beta_lo10000_500_0.0001.png}
+         \subcaption{$N=10,000$}
+     \end{subfigure}
+    \hfill
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+          \includegraphics[width=\textwidth]{graph/histo_beta_hi10000_500_0.0001.png}
+          \subcaption{$N=10,000$}
+        \end{subfigure}
+
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{graph/histo_beta_lo25000_500_4e-05.png}
+         \subcaption{$N=25,000$}
+     \end{subfigure}
+    \hfill
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{graph/histo_beta_hi25000_500_4e-05.png}
+         \subcaption{$N=25,000$}
+     \end{subfigure}     
+
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{graph/histo_beta_lo50000_500_4e-05.png}
+         \subcaption{$N=50,000$}
+     \end{subfigure}
+    \hfill
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{graph/histo_beta_hi50000_500_4e-05.png}
+         \subcaption{$N=50,000$}
+     \end{subfigure}     
+   
+\floatfoot{\footnotesize
+
+\textbf{Notes}: This figure compares simulation results for the main specificaiton, a fixed target parameter $LATE(0.35, 0.9)$ and different sample sizes $N$.
+The solid line indicates the true upper bound, the true lower bound is given by -0.138. The dashed line correspond to the mean of the estimator. Additionally, the plot shows a normal distrbution with the mean and variance equal to the moments of the estimator distributions.}
+
+\end{figure}
+\clearpage
+\newpage
+
+\section{Conclusion}
+While the (identificaiton) approach proposed by \citet{mogstad2018using} offers a framework for applied researchers enabling them to coherently think about and identify relevant target estimands, I think it would be beneficial if more was known on the behavior of these estimators by the means of simulation results.
+Simulation are neither reported in \citet{mogstad2018using} or their working paper version, nor the \textit{ivmte} R-package implementation described in \citet{shea2021ivmte}. 
+While the results here should be viewed very cautiously, as they are probably subject to implementation error, this is also one of the simplest possible settings in terms of DGP and assumptions\footnote{I also tried to replicate the analysis using the \textit{ivmte} package by \citet{shea2021ivmte}. However, for the same DGP, similar restrictions and using a saturated regressions for the identified moments I found the resulting distrbutions of the bounds to be even more biased. It is hard to tell, however, how exactly the estimator is implemented, as the package does not exactly follow the original \citet{mogstad2018using} paper.}. Yet, already some problems showed up that make the estimator hard to implement.
+In settings applied researchers want to use, say with $Z$ taking on many more values, other covariates $X$, or while imposing restrictions on the MTRs, additional issues might show up that might be worth investigating.
+
+Thus, future analysis could focus on the behavior of the estimator in these types of settings.
+Beyond that, \citet{mogstad2018using} propose a bootstrap method for constructing confidence intervals for the identified sets in their working paper version.
+However, they already note that no accepted procedure for these types of problems exist. While a lot more computationally demanding, it would be interesting to have simulation results on these or think about a different approaches to quantify uncertainty about the estimator\footnote{Maybe it would be worthiwhile recasting this as a Bayesian problem, although this might give up the attractive distinction between model uncertainty (in the form of the identified set) and sampling unertainty (the frequentist CI for that set).}.
+Lastly, applied reseachers are concerned with problems about weak instrments \citep{andrews2019weak}. It would be interesting to study how these translate into the estimation of the bounds. 
+From the point of identificaiton of course, there is no problem with weak instrments --- as long as the propensity score varies over $Z$, the instruments identify something, only bounds for extrapolation will be wide. Still the estimator may suffer from a particularly bad finite sample bias or the bootstrap approach to CI construction might fail\footnote{\citet{mogstad2018using} briefly mention the weak IV in footnote 3 and suggest to instead dropping the first-stage scaling by $\frac{1}{Cov(D,Z_0)}$ from the IV-like specification, which they argue imposes the same constraints on the MTR functions.}.
 
 \printbibliography
 
@@ -465,6 +523,9 @@ The figure below reports identification and estimation results for each $LATE(0.
 \textbf{Notes}: This figure compares simulation results for the main specificaiton described in Section \ref{sec:4_sim} different samples sizes $N$.}
 
 \end{figure}
+
+\clearpage
+\newpage
 
 \section{Unstable Estimator}
 
